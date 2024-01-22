@@ -1,3 +1,10 @@
+# This example has been tested on Windows only.
+# To try it out:
+# - Enable the Narrator
+# - Launch the program
+# Use Tab and Shift+Tab to move the focus
+# Use CapsLock+Enter to activate the buttons or toggle the checkbox
+
 from kivy.app import App
 from kivy.core.accessibility import AccessibilityManager, Action, Role
 from kivy.uix.behaviors.accessibility import AccessibleBehavior
