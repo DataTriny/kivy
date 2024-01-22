@@ -12,9 +12,21 @@ class AccessKit(AccessibilityBase):
         self.adapter = None
         self.root_window = root_window
         self.root_window_size = None
+        root_window.bind(focus=lambda w, v: self._update_root_window_focus(v))
         root_window.bind(size=lambda w, v: self._update_root_window_size(v))
         self.action_request_callback = None
         self.initialized = False
+
+    def _update_root_window_focus(self, is_focused):
+        # This is not called the first time the window gets focused, but it really should be.
+        if self.adapter is None:
+            return
+        if platform == 'darwin':
+            events = self.adapter.update_view_focus_state(is_focused)
+            if events is not None:
+                events.raise_events()
+        elif 'linux' in platform or 'freebsd' in platform or 'openbsd' in platform:
+            self.adapter.update_window_focus_state(is_focused)
 
     def _update_root_window_size(self, size):
         self.root_window_size = size
@@ -58,6 +70,8 @@ class AccessKit(AccessibilityBase):
             self.adapter = unix.Adapter(self._build_dummy_tree, self._on_action_request)
         elif platform in ('win32', 'cygwin'):
             self.adapter = windows.SubclassingAdapter(window_info.window, self._build_dummy_tree, self._on_action_request)
+        # Assume the window has the focus at this time, even though it's probably not true.
+        self._update_root_window_focus(True)
 
     def _build_node(self, accessible):
         builder = NodeBuilder(to_accesskit_role(accessible.accessible_role))
