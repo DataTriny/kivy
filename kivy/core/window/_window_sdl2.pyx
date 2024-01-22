@@ -75,8 +75,14 @@ cdef class _WindowSDL2Storage:
     def die(self):
         raise RuntimeError(<bytes> SDL_GetError())
 
-    def setup_window(self, x, y, width, height, borderless, fullscreen, resizable, state, gl_backend):
-        self.win_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI
+    def setup_window(self, x, y, width, height, borderless, fullscreen, resizable, state, gl_backend, accessibility):
+        self.win_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI
+
+        # On Windows and macOS the window must be created hidden before the accessibility provider is installed.
+        IF UNAME_SYSNAME == 'Windows':
+            self.win_flags |= SDL_WINDOW_HIDDEN
+        ELSE:
+            self.win_flags |= SDL_WINDOW_SHOWN
 
         if resizable:
             self.win_flags |= SDL_WINDOW_RESIZABLE
@@ -220,6 +226,19 @@ cdef class _WindowSDL2Storage:
                 NULL, x, y, width, height, self.win_flags
             )
 
+        if not self.win:
+            self.die()
+
+        cdef int w, h
+        SDL_GetWindowSize(self.win, &w, &h)
+
+        # Install the accessibility provider and show the window if necessary
+        # TODO: There is currently no way to retrieve the handle of an NSWindow.
+        window_info = self.get_window_info()
+        accessibility.install(window_info, w, h)
+        IF UNAME_SYSNAME == 'Windows':
+            self.show_window()
+
         # post-creation fix for shaped window
         if shaped > 0 and self.is_window_shaped():
             # because SDL just set it to (-1000, -1000)
@@ -269,8 +288,6 @@ cdef class _WindowSDL2Storage:
         SDL_EventState(SDL_DROPTEXT, SDL_ENABLE)
         SDL_EventState(SDL_DROPBEGIN, SDL_ENABLE)
         SDL_EventState(SDL_DROPCOMPLETE, SDL_ENABLE)
-        cdef int w, h
-        SDL_GetWindowSize(self.win, &w, &h)
         return w, h
 
     def _set_cursor_state(self, value):
